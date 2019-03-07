@@ -10,19 +10,18 @@ import java.security.SecureRandom;
 import org.bouncycastle.asn1.sec.SECNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.signers.ECDSASigner;
 import org.bouncycastle.math.ec.ECPoint;
 
-import threshold.mr04.Alice;
-import threshold.mr04.Bob;
-import threshold.mr04.Paillier;
-import threshold.mr04.PaillierPublicKey;
-import threshold.mr04.Util;
-import threshold.mr04.benchmarking.Proofs;
-import threshold.mr04.data.*;
+import threshold.mr04.data.PublicParameters;
+import threshold.mr04.data.Round1Message;
+import threshold.mr04.data.Round2Message;
+import threshold.mr04.data.Round3Message;
+import threshold.mr04.data.Round4Message;
 
 public class SignatureTest {
     // curve initialization from bitcoinj
-	public static final ECDomainParameters CURVE;
+    public static final ECDomainParameters CURVE;
     public static final BigInteger q;
     public static final ECPoint G;
     public BigInteger privateKey;
@@ -72,13 +71,13 @@ public class SignatureTest {
     }
 
     public SignatureTest(int t) {
-    	/*
-    	  paillier = new Paillier(256 * (3 * t + 3) + 1, 100);
-    	  N = paillier.n;
-    	 g = paillier.g;
-    	 */
-    	
-    	paillier = new Paillier(256 * (3 * t + 3) + 1, 100);
+        /*
+          paillier = new Paillier(256 * (3 * t + 3) + 1, 100);
+          N = paillier.n;
+         g = paillier.g;
+         */
+        System.out.println("Sig test");
+        paillier = new Paillier(256 * (3 * t + 3) + 1, 100);
         do {
             privateKey = new BigInteger(256, rand);
         } while (privateKey.compareTo(q) != -1);
@@ -172,48 +171,44 @@ public class SignatureTest {
     };
 
     public static void main(String[] args) {
-    	int times = 7;
-    	BigInteger m3 = null;
-		BigInteger alpha = null;
-    	for (int i = 2; i <= 20; i++) {
-    		
-    		if (i == 2) {
-    			SignatureTest t = new SignatureTest(i);
-                SecureRandom rand = new SecureRandom();
-                alpha = randomFromZn(q.pow(3), rand);
-                PaillierPublicKey alicesPaillierPubKey = t.alicesPallierPubKey;
-                BigInteger N = alicesPaillierPubKey.N;
-                BigInteger alphaIminus1 = randomFromZn(q.pow(i), rand);
-                BigInteger r3 = randomFromZn(N, rand);
-                m3 = Paillier.encrypt(alphaIminus1, alicesPaillierPubKey,r3);
-    		}
-    		
-    		Paillier paillier = new Paillier(256 * (3 * i + 3) + 1, 100);
-            BigInteger nSquared = paillier.n.pow(2);
             
-            long startTime = System.nanoTime();
-            BigInteger v3 = m3.modPow(alpha, nSquared);
-            System.out.println((System.nanoTime() - startTime));
-//            Alice alice = new Alice(t.aliceShare, t.publicKey, new SecureRandom(), t.paillier, params);
-//            Bob bob = new Bob(t.bobShare, t.publicKey, t.rand, params);
+        SignatureTest t = new SignatureTest1(2);
+        System.out.println("got t");
+        // set the private key to null - no more private key
+        t.privateKey = null;
+        PaillierPublicKey alicesPaillierPubKey = t.alicesPallierPubKey;
+        PublicParameters params = generateParamsforBitcoin(100, 256 * (3 * 2 + 3) + 1, t.rand, alicesPaillierPubKey);
+        System.out.println("got PublicParameters");
+            Alice alice = new Alice(t.aliceShare, t.publicKey, t.rand, t.paillier, params);
+            System.out.println("got alice");
+            Bob bob = new Bob(t.bobShare, t.publicKey, t.rand, params);
+            System.out.println("got bob");
 
-//            byte[] message = new byte[] { 1, 2, 4, 3 };
-//            Proofs p = new Proofs(t.publicKey, new SecureRandom(), params);
-//            p.zkpI(1);
-    	}
+            byte[] message = new byte[] { 1, 2, 4, 3 };
+
         
-//        Round1Message r1m = alice.aliceToBobRound1(message);
-//        Round2Message r2m = bob.bobToAliceRound2(r1m);
-//        Round3Message r3m = alice.aliceToBobRound3(r2m);
-//        Round4Message r4m = bob.bobToAliceRound4(r3m);
-//        BigInteger[] sig = alice.aliceOutput(r4m);
-//       
-//        System.out.println(Util.verifySignature(message, sig[0], sig[1], t.publicKey, CURVE));
-//        
-//    	for (int i = 2; i <= times - 1; i++) {
-//    		long startTime = System.nanoTime();
-//    		p.zkpI(i - 1);
-//    		System.out.println("Proof " + i + ": " + (System.nanoTime() - startTime));
-//    	}
+        Round1Message r1m = alice.aliceToBobRound1(message);
+        Round2Message r2m = bob.bobToAliceRound2(r1m);
+        Round3Message r3m = alice.aliceToBobRound3(r2m);
+        Round4Message r4m = bob.bobToAliceRound4(r3m);
+        BigInteger[] sig = alice.aliceOutput(r4m);
+        System.out.println("Threshold signature");
+        for(BigInteger signature : sig) {
+            System.out.println(signature);
+        }
+       
+        
+        System.out.println(Util.verifySignature(message, sig[0], sig[1], t.publicKey, CURVE));
+        BigInteger privKey = t.privateKey;
+        // test
+        ECDSASigner signer = new ECDSASigner();
+//        signer.init(true, new ECPrivateKeyParameters(privKey, CURVE));
+//        BigInteger[] signature = signer.generateSignature(message);
+//        System.out.println(new ASN1Integer(signature[0]).getPositiveValue());
+        
+//        System.out.println("generated signature");
+//        for(BigInteger s : signature) {
+//          System.out.println(s);
+//        }
     }
 }
